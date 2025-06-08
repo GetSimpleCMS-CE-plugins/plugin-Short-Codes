@@ -24,7 +24,7 @@ function init_shortcodes_filter() {
 }
 
 // ======================
-// FALLBACK FUNCTIONS (WITH ERROR HANDLING)
+// FALLBACK FUNCTIONS 
 // ======================
 
 function get_page_excerpt_fallback($len = 200, $striphtml = true, $ellipsis = '...', $echo = true) {
