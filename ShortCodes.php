@@ -7,10 +7,10 @@ ini_set('display_errors', 1);
 register_plugin(
 	$thisfile,
 	'Short-Codes',
-	'1.0',
+	'2.0',
 	'CE Team',
 	'https://www.getsimple-ce.ovh/',
-	'Allows theme_functions to be used in Page main content area.',
+	'Allows theme_functions and Components to be used in Page main content area.',
 	'pages',
 	'shortcodes_settings'
 );
@@ -21,6 +21,42 @@ add_action('theme-header', 'init_shortcodes_filter');
 
 function init_shortcodes_filter() {
 	add_filter('content', 'template_shortcodes_filter', 10);
+}
+
+// ======================
+// COMPONENT FUNCTIONALITY
+// ======================
+
+function get_component_fallback($id, $ret = false) {
+	if (!function_exists('get_component')) {
+		// Fallback implementation if core function doesn't exist
+		global $components;
+		$id = to7bit($id, 'UTF-8');
+		$id = clean_url($id);
+
+		if (!$components) {
+			if (file_exists(GSDATAOTHERPATH.'components.xml')) {
+				$data = getXML(GSDATAOTHERPATH.'components.xml');
+				$components = $data->item;
+			} else {
+				$components = [];
+			}
+		}
+
+		if (count($components) > 0) {
+			foreach ($components as $component) {
+				if ($id == $component->slug) {
+					$content = strip_decode($component->value);
+					if ($ret) return $content;
+					else eval("?>" . $content . "<?php ");
+				}
+			}
+		}
+		return '';
+	} else {
+		// Use core function if available
+		return get_component($id, $ret);
+	}
 }
 
 // ======================
@@ -149,6 +185,18 @@ function get_data_thumbs_fallback($filename = '', $echo = true) {
 // ======================
 
 function template_shortcodes_filter($content) {
+	// First process components with parentheses syntax
+	$content = preg_replace_callback(
+		'/\[\%\s*get_component\(\s*["\']([^"\']+)["\']\s*\)\s*\%\]/',
+		function($matches) {
+			ob_start();
+			get_component_fallback($matches[1]);
+			return ob_get_clean();
+		},
+		$content
+	);
+
+	// Then process all other shortcodes
 	return preg_replace_callback(
 		'/\[\%\s*([a-zA-Z0-9_]+)(?:\s+([^\%]+))?\s*\%\]/',
 		function($matches) {
@@ -204,6 +252,11 @@ function template_shortcodes_filter($content) {
 				case 'get_data_thumbs':
 					get_data_thumbs_fallback($params['filename'] ?? '');
 					break;
+				case 'get_component':
+					if (isset($params['id'])) {
+						get_component_fallback($params['id']);
+					}
+					break;
 				default:
 					return $matches[0];
 			}
@@ -219,14 +272,27 @@ function template_shortcodes_filter($content) {
 
 function shortcodes_settings() {
 	global $USR;
+	
+	// Get list of components
+	$components_list = '';
+	if (file_exists(GSDATAOTHERPATH.'components.xml')) {
+		$data = getXML(GSDATAOTHERPATH.'components.xml');
+		if ($data && count($data->item) > 0) {
+			$components_list = '<!--li class="w3-white"></li><li class="w3-light-grey"><strong>Component Shortcodes:</strong></li-->';
+			foreach ($data->item as $component) {
+				$components_list .= '<li><code class="tpl">[% get_component("' . $component->slug . '") %]</code> - ' . htmlspecialchars($component->title) . '</li>';
+			}
+		}
+	}
+	
 	echo '
 	<div class="w3-parent w3-container"><!-- Start Plugin -->
 		<h3>Short-Codes <svg xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;" width="1.2em" height="1.2em" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><path fill="none" stroke="#0033FF" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4H3v16h4M17 4h4v16h-4m-9-4h.01M12 16h.01M16 16h.01"/></svg></h3>
-		<p>Allows template functions in content blocks.</p>
+		<p>Allows theme_functions and Components in content blocks.</p>
 		
 		<hr>
 		<ul class="w3-ul w3-border w3-hoverable" style="width:90%">
-			<li class="w3-green"><strong>Available shortcodes:</strong></li>
+			<li class="w3-green"><strong>Available Template shortcodes:</strong></li>
 			
 			<li><code class="tpl">[% get_site_name %]</code></li>
 			<li><code class="tpl">[% get_site_url %]</code></li>
@@ -247,6 +313,10 @@ function shortcodes_settings() {
 			<li><code class="tpl">[% get_data_thumbs filename="thumbnail.example.jpg" %]</code></li>
 		</ul>
 		
+		<ul class="w3-ul w3-border w3-hoverable" style="width:90%">
+			<li class="w3-green"><strong>Available Component shortcodes:</strong></li>
+			' . $components_list . '
+		</ul>
 		<hr>
 		
 		<p><strong>Example values:</strong></p>
