@@ -7,7 +7,7 @@ ini_set('display_errors', 1);
 register_plugin(
 	$thisfile,
 	'Short-Codes',
-	'2.0',
+	'2.5',
 	'CE Team',
 	'https://www.getsimple-ce.ovh/',
 	'Allows theme_functions and Components to be used in Page main content area.',
@@ -60,7 +60,52 @@ function get_component_fallback($id, $ret = false) {
 }
 
 // ======================
-// FALLBACK FUNCTIONS 
+// File FUNCTIONS
+// ======================
+
+function safe_include_file($params) {
+	global $TEMPLATE;
+	
+	if (!isset($params['file'])) return '';
+	
+	// Define allowed base directories
+	$allowed_bases = [
+		GSDATAUPLOADPATH,			  	// Uploads directory
+		GSTHEMESPATH . $TEMPLATE . '/', // Current theme directory
+	];
+	
+	// File extension whitelist
+	$allowed_extensions = ['php', 'html', 'txt'];
+	$extension = strtolower(pathinfo($params['file'], PATHINFO_EXTENSION));
+	
+	// Check if extension is allowed
+	if (!in_array($extension, $allowed_extensions)) {
+		return '';
+	}
+	
+	// Sanitize the path (allow subdirectories but prevent directory traversal)
+	$requested_path = ltrim($params['file'], '/');
+	$requested_path = str_replace(['../', '..\\'], '', $requested_path); // Prevent directory traversal
+	
+	// Check each allowed base path
+	foreach ($allowed_bases as $base_path) {
+		$full_path = $base_path . $requested_path;
+		
+		// Additional security checks
+		if (file_exists($full_path) && 
+			is_file($full_path) &&
+			strpos(realpath($full_path), realpath($base_path)) === 0) { // Ensure file is within allowed directory
+			ob_start();
+			include($full_path);
+			return ob_get_clean();
+		}
+	}
+	
+	return ''; // File not found or not allowed
+}
+
+// ======================
+// FALLBACK FUNCTIONS
 // ======================
 
 function get_page_excerpt_fallback($len = 200, $striphtml = true, $ellipsis = '...', $echo = true) {
@@ -257,6 +302,8 @@ function template_shortcodes_filter($content) {
 						get_component_fallback($params['id']);
 					}
 					break;
+				case 'safe_include':
+					return safe_include_file($params);
 				default:
 					return $matches[0];
 			}
@@ -317,16 +364,24 @@ function shortcodes_settings() {
 			<li class="w3-green"><strong>Available Component shortcodes:</strong></li>
 			' . $components_list . '
 		</ul>
+		
+		<ul class="w3-ul w3-border w3-hoverable" style="width:90%">
+			<li class="w3-green"><strong>Include File from Uploads or current Templates folder</strong> (.php, .html, .txt):</li>
+			<li><code class="tpl">[% safe_include file="example.php" %]</code></li>
+			<li><code class="tpl">[% safe_include file="assets/example.php" %]</code></li>
+		</ul>
+		
 		<hr>
 		
-		<p><strong>Example values:</strong></p>
+		<p><strong>Example values & outputs:</strong></p>
 		<ul>
-			<li><b>Site Name:</b> ' . htmlspecialchars(get_site_name_fallback(false)) . '</li>
-			<li><b>Site URL:</b> ' . htmlspecialchars(get_site_url_fallback(false)) . '</li>
-			<li><b>Site Theme:</b> ' . htmlspecialchars(get_theme_url_fallback(false)) . '</li>
-			<li><b>Page Date:</b> ' . htmlspecialchars(get_page_date_fallback("Y-m-d", false)) . '</li>
+			<li><b>Site Name</b> <span class="tpl">[% get_site_name %]</span><b> :</b> ' . htmlspecialchars(get_site_name_fallback(false)) . '</li>
+			<li><b>Site URL </b> <span class="tpl">[% get_site_url %]</span><b> :</b> ' . htmlspecialchars(get_site_url_fallback(false)) . '</li>
+			<li><b>Site Theme </b> <span class="tpl">[% get_theme_url %]</span><b> :</b> ' . htmlspecialchars(get_theme_url_fallback(false)) . '</li>
+			
+			<!--li><b>Page Date:</b> ' . htmlspecialchars(get_page_date_fallback("Y-m-d", false)) . '</li>
 			<li><b>Image call:</b> ' . htmlspecialchars(get_data_uploads_fallback("example.jpg", false)) . '</li>
-			<!--li>Page Excerpt: "' . htmlspecialchars(get_page_excerpt_fallback(50, true, '...', false)) . '"</li>
+			<li>Page Excerpt: "' . htmlspecialchars(get_page_excerpt_fallback(50, true, '...', false)) . '"</li>
 			<li>Page Slug: ' . htmlspecialchars(get_page_slug_fallback(false)) . '</li-->
 		</ul>
 		
