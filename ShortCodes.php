@@ -7,7 +7,7 @@ ini_set('display_errors', 1);
 register_plugin(
 	$thisfile,
 	'Short-Codes',
-	'2.5',
+	'3.0',
 	'CE Team',
 	'https://www.getsimple-ce.ovh/',
 	'Allows theme_functions and Components to be used in Page main content area.',
@@ -327,9 +327,47 @@ function shortcodes_settings() {
 		if ($data && count($data->item) > 0) {
 			$components_list = '<!--li class="w3-white"></li><li class="w3-light-grey"><strong>Component Shortcodes:</strong></li-->';
 			foreach ($data->item as $component) {
-				$components_list .= '<li><code class="tpl">[% get_component("' . $component->slug . '") %]</code> - ' . htmlspecialchars($component->title) . '</li>';
+				$shortcode = '[% get_component("' . $component->slug . '") %]';
+				$components_list .= '<li>
+					<div class="shortcode-container">
+						<code class="tpl">' . htmlspecialchars($shortcode) . '</code>
+						<button class="copy-button" data-clipboard-text="' . htmlspecialchars($shortcode) . '" title="Copy">
+							<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#A60089"  d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+						</button>
+					</div>
+					- ' . htmlspecialchars($component->title) . '
+				</li>';
 			}
 		}
+	}
+	
+	// Standard shortcodes with copy buttons
+	$standard_shortcodes = [
+		'get_site_name' => '[% get_site_name %]',
+		'get_site_url' => '[% get_site_url %]',
+		'get_page_title' => '[% get_page_title %]',
+		'get_page_slug' => '[% get_page_slug %]',
+		'get_page_url' => '[% get_page_url %]',
+		'get_page_excerpt' => '[% get_page_excerpt %]',
+		'get_page_excerpt_params' => '[% get_page_excerpt len=100 striphtml=false ellipsis="→" %]',
+		'get_page_date' => '[% get_page_date %]',
+		'get_page_date_format' => '[% get_page_date format="Y-m-d" %]',
+		'get_theme_url' => '[% get_theme_url %]',
+		'get_data_uploads' => '[% get_data_uploads filename="example.jpg" %]',
+		'get_data_thumbs' => '[% get_data_thumbs filename="thumbnail.example.jpg" %]',
+		'safe_include' => '[% safe_include file="example.php" %]'
+	];
+	
+	$standard_list = '';
+	foreach ($standard_shortcodes as $name => $shortcode) {
+		$standard_list .= '<li>
+			<div class="shortcode-container">
+				<code class="tpl">' . htmlspecialchars($shortcode) . '</code>
+				<button class="copy-button" data-clipboard-text="' . htmlspecialchars($shortcode) . '" title="Copy">
+					<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#A60089" d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>
+				</button>
+			</div>
+		</li>';
 	}
 	
 	echo '
@@ -337,27 +375,61 @@ function shortcodes_settings() {
 		<h3>Short-Codes <svg xmlns="http://www.w3.org/2000/svg" style="vertical-align:middle;" width="1.2em" height="1.2em" viewBox="0 0 24 24"><rect width="24" height="24" fill="none"/><path fill="none" stroke="#0033FF" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4H3v16h4M17 4h4v16h-4m-9-4h.01M12 16h.01M16 16h.01"/></svg></h3>
 		<p>Allows theme_functions and Components in content blocks.</p>
 		
+		<style>
+			.shortcode-container {
+				display: inline-flex;
+				align-items: center;
+				gap: 8px;
+				margin-right: 8px;
+			}
+			.copy-button {
+				background: none;
+				border: none;
+				cursor: pointer;
+				padding: 2px;
+				opacity: 0.6;
+				transition: opacity 0.2s;
+			}
+			.copy-button:hover {
+				opacity: 1;
+			}
+			.copy-button svg {
+				vertical-align: middle;
+				fill: #0033FF;
+			}
+			.copy-success {
+				color: green;
+				font-size: 0.8em;
+				margin-left: 5px;
+				display: none;
+			}
+		</style>
+		
+		<script>
+			document.addEventListener("DOMContentLoaded", function() {
+				document.querySelectorAll(".copy-button").forEach(button => {
+					button.addEventListener("click", function() {
+						const text = this.getAttribute("data-clipboard-text");
+						navigator.clipboard.writeText(text).then(() => {
+							const success = document.createElement("span");
+							success.className = "copy-success";
+							success.textContent = "Copied!";
+							this.parentNode.appendChild(success);
+							success.style.display = "inline";
+							setTimeout(() => {
+								success.style.display = "none";
+								setTimeout(() => success.remove(), 500);
+							}, 2000);
+						});
+					});
+				});
+			});
+		</script>
+		
 		<hr>
-		<ul class="w3-ul w3-border w3-hoverable" style="width:90%">
+		<ul class="w3-ul w3-border w-striped w3-hoverable" style="width:90%">
 			<li class="w3-green"><strong>Available Template shortcodes:</strong></li>
-			
-			<li><code class="tpl">[% get_site_name %]</code></li>
-			<li><code class="tpl">[% get_site_url %]</code></li>
-			<li class="w3-white"></li>
-			<li><code class="tpl">[% get_page_title %]</code></li>
-			<li><code class="tpl">[% get_page_slug %]</code></li>
-			<li><code class="tpl">[% get_page_url %]</code></li>
-			<li><code class="tpl">[% get_page_excerpt %]</code> (defaults: len=200, striphtml=true, ellipsis=...)</li>
-			<li><code class="tpl">[% get_page_excerpt len=100 striphtml=false ellipsis="→" %]</code></li>
-			<li><code class="tpl">[% get_page_date %]</code> (default format: "l, F jS, Y - g:i A")</li>
-			<li><code class="tpl">[% get_page_date format="Y-m-d" %]</code></li>
-			<li><code class="tpl">[% get_page_meta_keywords %]</code></li>
-			<li><code class="tpl">[% get_page_meta_desc %]</code></li>
-			<li class="w3-white"></li>
-			<li><code class="tpl">[% get_theme_url %]</code></li>
-			<li class="w3-white"></li>
-			<li><code class="tpl">[% get_data_uploads filename="example.jpg" %]</code></li>
-			<li><code class="tpl">[% get_data_thumbs filename="thumbnail.example.jpg" %]</code></li>
+			' . $standard_list . '
 		</ul>
 		
 		<ul class="w3-ul w3-border w3-hoverable" style="width:90%">
@@ -365,13 +437,9 @@ function shortcodes_settings() {
 			' . $components_list . '
 		</ul>
 		
-		<ul class="w3-ul w3-border w3-hoverable" style="width:90%">
-			<li class="w3-green"><strong>Include File from Uploads or current Templates folder</strong> (.php, .html, .txt):</li>
-			<li><code class="tpl">[% safe_include file="example.php" %]</code></li>
-			<li><code class="tpl">[% safe_include file="assets/example.php" %]</code></li>
-		</ul>
-		
 		<hr>
+		
+		<p><strong>Included files from Uploads or current Templates folder only.</strong> (.php, .html, .txt)</p>
 		
 		<p><strong>Example values & outputs:</strong></p>
 		<ul>
